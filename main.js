@@ -43,11 +43,13 @@ Animation.prototype.isDone = function () {
 /*
 Background
 */
-/*
+
 function Background(game, spritesheet, x, y, speed) {
     this.animation = new Animation(spritesheet, 3072, 1536, 1, 0.1, 1, true, 0.5);
+    this.spritesheet = spritesheet;
     this.speed = speed;
     this.ctx = game.ctx;
+	this.game = game;
     Entity.call(this, game, x, y);
 }
 
@@ -55,14 +57,17 @@ Background.prototype = new Entity();
 Background.prototype.constructor = Background;
 
 Background.prototype.update = function () {
+    if (this.game.Hero.moving) this.x -= this.game.clockTick * this.speed * this.game.Hero.direction;
+    //if (this.x <= Camera.x - 1536) this.x = Camera.x + 1530;
     Entity.prototype.update.call(this);
 }
 
 Background.prototype.draw = function () {
-    this.animation.drawFrame(this.game.clockTick, this.ctx, this.x, this.y);
+    this.animation.drawFrame(this.game.clockTick, this.ctx, this.x - Camera.x, this.y);
+    //this.ctx.drawImage(this.spritesheet, this.x - Camera.x, this.y);
     Entity.prototype.draw.call(this);
 }
-*/
+
 
 function BoundingBox(x, y, width, height) {
     this.x = x;
@@ -91,8 +96,7 @@ function Platform(game, spritesheet, x, y, width, height) {
     this.height = height;
     this.x = x;
     this.y = y;
-    //this.unitsOfWidth = unitsOfWidth;
-    this.boundingbox = new BoundingBox(x, y, width, height);
+    this.boundingbox = new BoundingBox(x, y+4, width, height-25);
     Entity.call(this, game, x, y, width, height);
 }
 
@@ -100,34 +104,38 @@ Platform.prototype = new Entity();
 Platform.prototype.constructor = Platform;
 
 Platform.prototype.draw = function () {
-    /*
-    for (var i = 0; i < this.unitsOfWidth; i++) {
-        this.ctx.drawImage(this.spritesheet, this.x + (this.unitsOfWidth * this.width), this.y);
-    }
-    */
-    this.ctx.drawImage(this.spritesheet, this.x /*+ (this.unitsOfWidth * this.width)*/, this.y);
+	
+    this.ctx.drawImage(this.spritesheet, this.x - Camera.x, this.y);
+    //this.ctx.rect(this.x, this.y+4, this.width, this.height-25);
+    //this.ctx.stroke();
     
     Entity.prototype.draw.call(this);
 }
 Platform.prototype.update = function () {
-    //this.boundingbox = new BoundingBox(this.x, this.y, this.width, this.height);
-    //Entity.prototype.update.call(this);
+    Entity.prototype.update.call(this);
 }
 
 /*
 Running Soldier
 */
 function Soldier(game, spritesheet, x, y) {
-    this.animation = new Animation(spritesheet, 50, 50, 8, 0.10, 8, true, 2);
-    this.speed = 200;
+    this.animation = new Animation(spritesheet, 50, 50, 8, 0.10, 8, true, 1);
+    this.speed = 400;
     this.ctx = game.ctx;
     this.game = game;
     this.x = x;
     this.y = y;
     this.height = 50;
+    this.width = 50;
     this.falling = true;
+    this.jumping = false;
+    this.jumpHeight = 100;
+    this.moving = false;
+	this.up = false;
+    this.direction = 1;
+    this.platform = game.platforms[0];
     
-    this.boundingbox = new BoundingBox(this.x, this.y+3, 50, 50);
+    this.boundingbox = new BoundingBox(this.x+2, this.y+2, this.width-7, this.height-3);
     Entity.call(this, game, x, y);
 }
 
@@ -135,97 +143,212 @@ Soldier.prototype = new Entity();
 Soldier.prototype.constructor = Soldier;
 
 Soldier.prototype.update = function () {
-    this.lastBottom = this.boundingbox.bottom;
-    this.boundingbox = new BoundingBox(this.x, this.y, 50, 50);
 
+    // moving
+    if (this.moving) {
+        this.x += this.game.clockTick * this.speed * this.direction;    
+        Camera.x += this.game.clockTick * this.speed * this.direction;      
+    }
+
+    // free fall
     if (this.falling) {
-        this.y += this.game.clockTick * this.speed * 2;    
-    }    
-
-    for (var i = 0; i < this.game.platforms.length; i++) {
-        var pf = this.game.platforms[i];
+        this.lastBottom = this.boundingbox.bottom-3;
+        this.boundingbox = new BoundingBox(this.x+2, this.y+2, this.width-7, this.height-3);
+    
+        this.y += this.game.clockTick / this.animation.totalTime * 4 * this.jumpHeight;
+        
+        // check for platform
+        for (var i = 0; i < this.game.platforms.length; i++) {
+            var pf = this.game.platforms[i];
             
-        if (this.boundingbox.collide(pf.boundingbox) && this.lastBottom < pf.boundingbox.top) {
-            console.log("Collision!");
-            this.falling = false;
-            console.log("platform top: " + pf.boundingbox.top);
-            console.log(this.y);
-            this.y = pf.boundingbox.top - this.animation.frameHeight - 40;
-            console.log(this.y);
+            // landed on top of platform
+            if (this.boundingbox.collide(pf.boundingbox) && this.lastBottom < pf.boundingbox.top) {
+                console.log("Collision!");
+                this.falling = false;
+                this.y = pf.boundingbox.top - this.height+3;
+                this.platform = pf;
+            }
+        
         }
+    }    
+    // press jump
+    if (this.up && !this.jumping && !this.falling) {
+        this.jumping = true;
+        this.base = this.y;
+		this.up = false;
         
     }
+    if (this.jumping) {
+        var duration = this.animation.elapsedTime + this.game.clockTick;
+        if (duration > this.animation.totalTime / 2) duration = this.animation.totalTime - duration;
+            duration = duration / this.animation.totalTime;
+            
+        // parbolic jump
+        height = (4 * duration - 4 * duration * duration) * this.jumpHeight;
+        this.y = this.base - height;
+        if (this.moving) this.x += this.game.clockTick * this.speed * this.direction;
+
+        this.lastBottom = this.boundingbox.bottom-3;
+        this.boundingbox = new BoundingBox(this.x+2, this.y+2, this.width-7, this.height-3);
+                
+        // check for platform
+        for (var i = 0; i < this.game.platforms.length; i++) {
+            var pf = this.game.platforms[i];
+            
+            // landed on top of platform            
+            if (this.boundingbox.collide(pf.boundingbox) && this.lastBottom < pf.boundingbox.top) {
+                console.log("Collision!");
+                this.jumping = false;
+
+                this.y = pf.boundingbox.top - this.height+3;
+                this.platform = pf;
+            }
+        }
+        this.space = null;
+    }
+    
+    // walk off edge
+    if (!this.jumping && !this.falling) {
+        this.boundingbox = new BoundingBox(this.x+2, this.y+2, this.width-7, this.height-3);
+        
+        // walk off right edge
+        if (this.boundingbox.left > this.platform.boundingbox.right) this.falling = true;
+        // walk off left edge
+        else if (this.boundingbox.right < this.platform.boundingbox.left) this.falling = true;
+    }
+
     
     if (this.y > 700) this.y = -50;
-
+    this.moving = false;
     Entity.prototype.update.call(this);
 }
 
 Soldier.prototype.draw = function () {
-    this.animation.drawFrame(this.game.clockTick, this.ctx, this.x, this.y);
+    this.animation.drawFrame(this.game.clockTick, this.ctx, this.x - Camera.x, this.y);
+    //this.ctx.rect(this.x+2, this.y+2, this.width-7, this.height-3);
+    //this.ctx.stroke();
     Entity.prototype.draw.call(this);
 }
+
+/*
+Bullet
+*/
+function Bullet(game, spritesheet, x, y) {
+    this.animation = new Animation(spritesheet, 14, 14, 8, 1, 8, true, 1);
+    this.speed = 500;
+    this.ctx = game.ctx;
+    this.x = x;
+    this.y = y;
+    Entity.call(this, game, this.x, this.y);
+}
+
+Bullet.prototype = new Entity();
+Bullet.prototype.constructor = Bullet;
+
+Bullet.prototype.update = function () {
+    this.x += this.game.clockTick * this.speed;
+    /*
+    if (this.x > Camera.x + 800) {
+        this.removeFromWorld();
+        console.log("bullet removed");
+    }
+    */
+    Entity.prototype.update.call(this);
+}
+
+Bullet.prototype.draw = function () {
+    this.animation.drawFrame(this.game.clockTick, this.ctx, this.x - Camera.x, this.y);
+    Entity.prototype.draw.call(this);
+}
+
+var Camera = {
+    x: 0,
+    width: 800
+};
 
 AM.queueDownload("./img/soldier.png");
 AM.queueDownload("./img/layer1.png");
 AM.queueDownload("./img/layer2.png");
 AM.queueDownload("./img/layer3.png");
 AM.queueDownload("./img/platform.png");
+AM.queueDownload("./img/bullet.png");
 
 AM.downloadAll(function () {
     var canvas = document.getElementById("gameWorld");
     var ctx = canvas.getContext("2d");
 
-    var gameEngine = new GameEngine();
+	var gameEngine = new GameEngine();
     var platforms = [];
+    var bullets = [];
     gameEngine.init(ctx);
     gameEngine.start();
 
-    //gameEngine.addEntity(new Background(gameEngine, AM.getAsset("./img/layer1.png"), 0, 0, 35));
-//    gameEngine.addEntity(new Background(gameEngine, AM.getAsset("./img/layer1.png"), 1535, 0, 35));
-    //gameEngine.addEntity(new Background(gameEngine, AM.getAsset("./img/layer2.png"), 0, -50, 75));
-//    gameEngine.addEntity(new Background(gameEngine, AM.getAsset("./img/layer2.png"), 1535, -50, 75));
-    //gameEngine.addEntity(new Background(gameEngine, AM.getAsset("./img/layer3.png"), 0, -50, 200));
-    var testUnits = 5;
-    for (var i = 0; i < testUnits; i++) {
+	gameEngine.addEntity(new Background(gameEngine, AM.getAsset("./img/layer1.png"), -1535, 0, 35));
+    gameEngine.addEntity(new Background(gameEngine, AM.getAsset("./img/layer1.png"), 0, 0, 35));
+    gameEngine.addEntity(new Background(gameEngine, AM.getAsset("./img/layer1.png"), 1535, 0, 35));
+	gameEngine.addEntity(new Background(gameEngine, AM.getAsset("./img/layer2.png"), -1535, -50, 75));
+    gameEngine.addEntity(new Background(gameEngine, AM.getAsset("./img/layer2.png"), 0, -50, 75));
+    gameEngine.addEntity(new Background(gameEngine, AM.getAsset("./img/layer2.png"), 1535, -50, 75));
+	gameEngine.addEntity(new Background(gameEngine, AM.getAsset("./img/layer3.png"), -1535, -50, 200));
+    gameEngine.addEntity(new Background(gameEngine, AM.getAsset("./img/layer3.png"), 0, -50, 200));
+    gameEngine.addEntity(new Background(gameEngine, AM.getAsset("./img/layer3.png"), 1535, -50, 200)); 
+ 
+    var platformwidth = 7;
+    for (var i = 0; i < platformwidth; i++) {
         var pf = new Platform(gameEngine, AM.getAsset("./img/platform.png"), 0+(128*i), 500, 128, 128)
         gameEngine.addEntity(pf);
         platforms.push(pf);
     }
+    
+    var pf = new Platform(gameEngine, AM.getAsset("./img/platform.png"), (128*8), 500, 128, 128)
+        gameEngine.addEntity(pf);
+        platforms.push(pf);
+    
+    var pf = new Platform(gameEngine, AM.getAsset("./img/platform.png"), (128*7), 300, 128, 128)
+		gameEngine.addEntity(pf);
+        platforms.push(pf);
+    
     gameEngine.platforms = platforms;
     
-//    gameEngine.addEntity(new Background(gameEngine, AM.getAsset("./img/layer3.png"), 1535, -50, 200));
-    gameEngine.addEntity(new Soldier(gameEngine, AM.getAsset("./img/soldier.png"), 300, 0));
+    var Hero = new Soldier(gameEngine, AM.getAsset("./img/soldier.png"), 400, 0);
+    gameEngine.addEntity(Hero);
+	gameEngine.Hero = Hero;
 
-    console.log("All Done!");
+    document.addEventListener('keydown', function(e){
+          
+		switch(e.keyCode) {
+			// Spacebar
+			case 32:
+				var bullet = new Bullet(gameEngine, AM.getAsset("./img/bullet.png"), Hero.x + 37, Hero.y + 18);
+				gameEngine.addEntity(bullet);
+				bullets.push(bullet);
+			break;
+                       
+            // Left
+            case 37:
+                Hero.moving = true;
+                Hero.direction = -1;          
+				break;
+             
+             // Up
+             case 38:
+                Hero.up = true;
+				break;
+             
+             // Right
+				case 39:
+                Hero.moving = true;
+                Hero.direction = 1;
+                 break;
+		}
+      });
+	document.addEventListener('keyup', function(e){
+		switch(e.keyCode) {
+            case 38:
+			break;
+		}
+	});
+    
+	console.log("All Done!");
 });
 
-document.addEventListener('keydown', function(e){
-          
-          switch(e.keyCode) {
-              case 39:
-                  right = true;
-                    
-                  break;
-              case 37:
-                  
-                  console.log("left");
-                  
-                  
-                  break;
-              case 38: 
-    console.log("up");
-                  break;
-              case 40:
-    console.log("down");
-                  break;
-          }
-      });
-      document.addEventListener('keyup', function(e){
-          switch(e.keyCode) {
-            case 38:
-
-              break 
-            
-          }
-      });
