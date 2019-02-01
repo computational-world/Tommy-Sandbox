@@ -128,6 +128,7 @@ function BlueMonster(game, spritesheet, x, y, width, height) {
 	this.speed = 50;
     this.x = x;
     this.y = y;
+	this.hitPoints = 3;
 	this.active = false;
     this.boundingbox = new BoundingBox(x, y, width, height);
     Entity.call(this, game, x, y, width, height);
@@ -137,6 +138,13 @@ BlueMonster.prototype = new Entity();
 BlueMonster.prototype.constructor = BlueMonster;
 
 BlueMonster.prototype.draw = function () {
+	this.ctx.drawImage(this.spritesheet, this.x - Camera.x, this.y);
+}
+BlueMonster.prototype.update = function () {
+    if (this.hitPoints <= 0)
+		this.x = -1000;
+	
+	this.boundingbox = new BoundingBox(this.x, this.y, this.width, this.height);
 	this.lastLeft = this.boundingbox.left + 5;
 	if (this.game.Hero.x > 128 * 12) {
 		this.active = true;
@@ -144,27 +152,19 @@ BlueMonster.prototype.draw = function () {
 	if (this.active) {
 		this.x -= this.game.clockTick * this.speed;
 	}
-    this.ctx.drawImage(this.spritesheet, this.x - Camera.x, this.y);
 	
-	// check for bullet
+		// check for bullet
 	for (var i = 0; i < this.game.bullets.length; i++) {
 		var bullet = this.game.bullets[i];
 		
 		// hit by bullet            
-		if (this.boundingbox.collide(bullet.boundingbox) && this.lastLeft > bullet.boundingbox.right) {
+		if (this.boundingbox.collide(bullet.boundingbox)) {
 			console.log("hit!");
+			this.hitPoints -= 1;
+			bullet.x += 1000;
 		}
 	}
-    
-	this.ctx.strokeStyle = "red";
-	this.ctx.strokeRect(this.x, this.y, this.width, this.height);
-//	this.ctx.strokeStyle = "green";
-//	this.ctx.strokeRect(this.boundingbox.x, this.boundingbox.y, this.boundingbox.width, this.boundingbox.height);
-	
-    Entity.prototype.draw.call(this);
-}
-BlueMonster.prototype.update = function () {
-    Entity.prototype.update.call(this);
+	Entity.prototype.update.call(this);
 }
 
 /*
@@ -175,7 +175,7 @@ function Soldier(game, spritesheet, x, y) {
 	this.animationLeft = new Animation(AM.getAsset("./img/soldierLeft.png"), 50, 50, 8, 0.10, 8, true, 1);
     this.animationJumpRight = new Animation(AM.getAsset("./img/soldierJumpRight.png"), 50, 50, 8, 0.10, 8, true, 1);
 	this.animationJumpLeft = new Animation(AM.getAsset("./img/soldierJumpLeft.png"), 50, 50, 8, 0.10, 8, true, 1);
-	this.speed = 400;
+	this.speed = 300;
     this.ctx = game.ctx;
     this.game = game;
     this.x = x;
@@ -184,7 +184,7 @@ function Soldier(game, spritesheet, x, y) {
     this.width = 50;
     this.falling = true;
     this.jumping = false;
-    this.jumpHeight = 100;
+    this.jumpHeight = 115;
     this.moving = false;
 	this.up = false;
     this.direction = 1;
@@ -245,7 +245,6 @@ Soldier.prototype.update = function () {
     if (this.up && !this.jumping && !this.falling) {
         this.jumping = true;
         this.base = this.y;
-		this.up = false;
         
     }
     if (this.jumping) {
@@ -274,7 +273,7 @@ Soldier.prototype.update = function () {
             
             // landed on top of platform            
             if (this.boundingbox.collide(pf.boundingbox) && this.lastBottom < pf.boundingbox.top) {
-                console.log("Collision!");
+                console.log("Landed on a platform!");
                 this.jumping = false;
 
                 this.y = pf.boundingbox.top - this.height+3;
@@ -305,18 +304,9 @@ Soldier.prototype.draw = function () {
 		
 		if (this.direction === 1) {
 			this.animationRight.drawFrame(this.game.clockTick, this.ctx, this.x - Camera.x, this.y);
-			if (this.animationRight.isDone()) {
-				this.animationRight.elapsedTime = 0;
-				this.moving = false;
-			}
-				
 		}
 		else {
 			this.animationLeft.drawFrame(this.game.clockTick, this.ctx, this.x - Camera.x, this.y);
-			if (this.animationLeft.isDone()) {
-				this.animationLeft.elapsedTime = 0;
-				this.moving = false;
-			}
 		}
 	}
 	else if (this.jumping) {
@@ -349,9 +339,6 @@ Soldier.prototype.draw = function () {
 			this.ctx.drawImage(AM.getAsset("./img/soldier.png"), 60, 11, 47, 49, this.x - Camera.x, this.y, 50, 50);
 	}
 	
-	//this.ctx.rect(this.x+2, this.y+2, this.width-7, this.height-3);
-    //this.ctx.stroke();
-	//this.moving = false;
     Entity.prototype.draw.call(this);
 }
 
@@ -364,6 +351,8 @@ function Bullet(game, spritesheet, x, y, direction) {
     this.ctx = game.ctx;
     this.x = x;
     this.y = y;
+	this.width = 14;
+	this.height = 14;
 	this.direction = direction;
 	this.boundingbox = new BoundingBox(this.x, this.y, this.width, this.height);
     Entity.call(this, game, this.x, this.y);
@@ -374,6 +363,7 @@ Bullet.prototype.constructor = Bullet;
 
 Bullet.prototype.update = function () {
     this.x += this.game.clockTick * this.speed * this.direction;
+	this.boundingbox = new BoundingBox(this.x, this.y, this.width, this.height);
     /*
     if (this.x > Camera.x + 800) {
         this.removeFromWorld();
@@ -427,6 +417,7 @@ AM.downloadAll(function () {
 	gameEngine.addEntity(new Background(gameEngine, AM.getAsset("./img/layer3.png"), -1535, -50, 200));
     gameEngine.addEntity(new Background(gameEngine, AM.getAsset("./img/layer3.png"), 0, -50, 200));
     gameEngine.addEntity(new Background(gameEngine, AM.getAsset("./img/layer3.png"), 1535, -50, 200)); 
+	gameEngine.addEntity(new Background(gameEngine, AM.getAsset("./img/layer3.png"), 3070, -50, 200)); 
  
     var platformwidth = 7;
     for (var i = 0; i < platformwidth; i++) {
@@ -464,6 +455,10 @@ AM.downloadAll(function () {
 	var monster1 = new BlueMonster(gameEngine, AM.getAsset("./img/BlueMonster.png"), 128*15, 375, 26, 27);
 	gameEngine.addEntity(monster1);
 	monsters.push(monster1);
+	
+	var monster2 = new BlueMonster(gameEngine, AM.getAsset("./img/BlueMonster.png"), 128*17, 375, 26, 27);
+	gameEngine.addEntity(monster2);
+	monsters.push(monster2);
 	
     document.addEventListener('keydown', function(e){
           
