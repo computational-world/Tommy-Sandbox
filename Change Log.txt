@@ -1,3 +1,5 @@
+Change Log starting from 1/31/19.
+
 1/31/19:
 	Features:
 		- Added ability to shoot
@@ -8,3 +10,20 @@
 		- Fixed bullet/monster collision detection
 		- Fixed ghost frame bug while running on platform (this also reduces the total number of platforms needed in the game)
 		- Fixed inability to jump more than once
+		
+2/2/19
+	Bug Fixes:
+		- Fixed bug that allowed bullets removed from the game to still hit enemies if they walked into the spot where the bullet was removed.
+		
+2/5/19
+	Features:
+		- Added power-up functionality and floating animation.  
+		- Added health power-up
+		- Added coin power-up
+		- Added shield power-up
+		- Added ability for monsters to drop power-ups
+		- Added smart platform constructor
+		- Add tile constructor for various background objects (rocks, trees, etc.)
+		
+	Bug Fixes:
+		- Fixed a bug that created a gap between tiles.
