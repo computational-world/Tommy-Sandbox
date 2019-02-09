@@ -23,7 +23,43 @@ Change Log starting from 1/31/19.
 		- Added shield power-up
 		- Added ability for monsters to drop power-ups
 		- Added smart platform constructor
-		- Add tile constructor for various background objects (rocks, trees, etc.)
+		- Added tile constructor for various background objects (rocks, trees, etc.)
+		- Added coin counter to UI
 		
 	Bug Fixes:
 		- Fixed a bug that created a gap between tiles.
+		
+2/6/19
+	Features:
+		- Changed hero to a new sprite with more animations/states
+		- Added shield animation
+		- Added flying robot monster (basic movement)
+		
+2/7/19
+	Features:
+		- Added black border around bullet to make it more visible
+		- Added Turret monster (immobile/shoot)
+		- Added empty heart to UI to better illustrate current health vs max health
+		- Added explosion effect when bullet collides with enemies
+		- Added hero aiming up while standing, running right, and running left
+		- Added hero aiming down while standing, running right, and running left
+		
+	Bug Fixes:
+		- Fixed a bug that caused the hero to continually jump instead of falling after jump completes
+		- Fixed a bug that caused the hero to be unable to jump and move simultaneously
+		- Fixed a bug that caused the hero to jump twice if changing direction mid-air
+		- Fixed a bug that was causing flickering on timed shooting animation of turret
+		
+2/8/19
+	Features:
+		- Added map boundary for hero and camera
+		- Added enemy shooting capability
+		
+	Bug Fixes:
+		- Fixed a bug with UI moving when at the edge of the map
+		
+2/9/19
+	Features:
+		- Added hero ability to shoot at up and down angles
+		- Added cooldown to shooting
+		- Added Mech monster (jump/shoot/stand)
