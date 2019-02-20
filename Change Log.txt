@@ -63,3 +63,4 @@ Change Log starting from 1/31/19.
 		- Added hero ability to shoot at up and down angles
 		- Added cooldown to shooting
 		- Added Mech monster (jump/shoot/stand)
+		- Added weapons to UI

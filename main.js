@@ -281,9 +281,9 @@ Waterfall
 */
 function Waterfall(game, spritesheet, sourceXWater, sourceYWater, sourceXTopSplash, sourceYTopSplash, sourceXBotSplash, sourceYBotSplash, 
 	x, y, width, height, waterfallWidth, waterfallHeight) {
-	this.animationWater = new CustomAnimation(spriteSheet, sourceXWater, sourceYWater, 4, width, height, 3, 0.2, 3, true, 1);
-	this.animationSplashTop = new CustomAnimation(spriteSheet, sourceXTopSplash, sourceYTopSplash, 2, 50, 14, 2, 0.2, 2, true, 1);
-	this.animationSplashBot = new CustomAnimation(spriteSheet, sourceXBotSplash, sourceYBotSplash, 2, 50, 14, 2, 0.2, 2, true, 1);
+	this.animationWater = new CustomAnimation(spritesheet, sourceXWater, sourceYWater, 4, width, height, 3, 7, 3, true, 1);
+	this.animationSplashTop = new CustomAnimation(spritesheet, sourceXTopSplash, sourceYTopSplash, 2, 50, 14, 2, 1.5, 2, true, 1);
+	this.animationSplashBot = new CustomAnimation(spritesheet, sourceXBotSplash, sourceYBotSplash, 2, 50, 14, 2, 1.5, 2, true, 1);
     this.ctx = game.ctx;
 	this.game = game;
     this.spritesheet = spritesheet;
@@ -307,61 +307,21 @@ function Waterfall(game, spritesheet, sourceXWater, sourceYWater, sourceXTopSpla
 Waterfall.prototype = new Entity();
 Waterfall.prototype.constructor = Waterfall;
 
+Waterfall.prototype.update = function () {
+    Entity.prototype.update.call(this);
+}
 Waterfall.prototype.draw = function () {
 	
     for (var y = 0; y < this.waterfallHeight; y++) {
         for (var i=0; i < this.waterfallWidth; i++) {
-            if (i === 0) {
-                if (y === 0) {
-                    this.ctx.drawImage(this.spritesheet,
-                        this.sourceXTopLeft, this.sourceYTopLeft,  // source from sheet
-                        this.width, this.height,
-                        this.x - Camera.x, this.y + y,
-                        this.width, this.height);
-                } else {
-                    this.ctx.drawImage(this.spritesheet,
-                        this.sourceXLeft, this.sourceYLeft,  // source from sheet
-                        this.width, this.height,
-                        this.x - Camera.x, this.y + y,
-                        this.width, this.height);
-                }                
-            } else if (i < this.numberOfTiles - 1) {
-                if (y === 0) {
-                    this.ctx.drawImage(this.spritesheet,
-                     this.sourceXTopMid, this.sourceYTopMid,  // source from sheet
-                     this.width, this.height,
-                     this.x + (i * this.width) - Camera.x, this.y + y,
-                     this.width, this.height);
-                } else {
-                    this.ctx.drawImage(this.spritesheet,
-                     this.sourceXMid, this.sourceYMid,  // source from sheet
-                     this.width, this.height,
-                     this.x + (i * this.width) - Camera.x, this.y + y,
-                     this.width, this.height);
-                }               
-            } else {
-                if (y === 0) {
-                    this.ctx.drawImage(this.spritesheet,
-                     this.sourceXTopRight, this.sourceYTopRight,  // source from sheet
-                     this.width, this.height,
-                     this.x + (i * this.width) - Camera.x, this.y + y,
-                     this.width, this.height);
-                } else {
-                    this.ctx.drawImage(this.spritesheet,
-                     this.sourceXRight, this.sourceYRight,  // source from sheet
-                     this.width, this.height,
-                     this.x + (i * this.width) - Camera.x, this.y + y,
-                     this.width, this.height);
-                }
-                
-            }	
-        }
+			this.animationWater.drawFrame(this.game.clockTick, this.ctx, this.x - Camera.x + (i*this.width), this.y+(y*this.height));	
+			
+			if (y === 0) this.animationSplashTop.drawFrame(this.game.clockTick, this.ctx, this.x - Camera.x + (i*this.width), this.y+(y*this.height) - 3);
+			else if (y === this.waterfallHeight - 1) this.animationSplashBot.drawFrame(this.game.clockTick, this.ctx, this.x - Camera.x + (i*this.width), this.y+(y*this.height) + this.height - 9);
+		}
     }
     
     Entity.prototype.draw.call(this);
-}
-Waterfall.prototype.update = function () {
-    Entity.prototype.update.call(this);
 }
 //*****************************************************************************************************************
 
@@ -401,7 +361,7 @@ Platform.prototype.update = function () {
 PowerUp
 */
 function PowerUp(game, spritesheet, x, y, width, height, scale, type) {
-	if (type === "shield") this.animation = new Animation(spritesheet, width, height, 1, 0.5, 1, true, scale);
+	if (type === "shield" || type === "grenade") this.animation = new Animation(spritesheet, width, height, 1, 0.5, 1, true, scale);
 	else this.animation = new Animation(spritesheet, width, height, 8, 0.08, 8, true, scale);
     this.ctx = game.ctx;
 	this.game = game;
@@ -456,6 +416,13 @@ PowerUp.prototype.update = function () {
 		if (this.boundingbox.collide(this.game.Hero.boundingbox)) {
 					if (DEBUG) console.log("Hero got " + this.type + " power up!");
 					this.game.Hero.shield += 3;
+					this.removeFromWorld = true;
+		}
+	}
+	else if (this.type === "grenade") {
+		if (this.boundingbox.collide(this.game.Hero.boundingbox)) {
+					if (DEBUG) console.log("Hero got " + this.type + " power up!");
+					this.game.Hero.specials.push("grenade");
 					this.removeFromWorld = true;
 		}
 	}
@@ -601,7 +568,7 @@ Turret.prototype.constructor = Turret;
 Turret.prototype.update = function () {
     // monster dead
     if (this.hitPoints <= 0) {
-        this.game.Hero.score += 100;
+        this.game.Hero.score += 200;
         // drop powerUp
         if (this.powerUp) {
             if (this.powerUpType === "shield") {
@@ -723,9 +690,10 @@ Mech.prototype = new Entity();
 Mech.prototype.constructor = Mech;
 
 Mech.prototype.update = function () {
-    // monster dead
+    this.boundingbox = new BoundingBox(this.x+27, this.y, this.width-35, this.height);
+	// monster dead
     if (this.hitPoints <= 0) {
-        this.game.Hero.score += 100;
+        this.game.Hero.score += 500;
         // drop powerUp
         if (this.powerUp) {
             if (this.powerUpType === "shield") {
@@ -740,13 +708,17 @@ Mech.prototype.update = function () {
                 power = new PowerUp(this.game, AM.getAsset("./img/PowerUp/coin.png"), this.x, this.boundingbox.bottom - 35, 494, 496, 0.07, "coin");
                 this.game.addEntity(power);
                 this.game.powerups.push(power);
-            }
+            } else if (this.powerUpType === "grenade") {
+                power = new PowerUp(this.game, AM.getAsset("./img/PowerUp/grenade.png"), this.x, this.boundingbox.bottom - 35, 512, 512, 0.07, "grenade");
+                this.game.addEntity(power);
+                this.game.powerups.push(power);
+			}
 
         }
         this.removeFromWorld = true;
     }
 
-    this.boundingbox = new BoundingBox(this.x+27, this.y, this.width-35, this.height);
+    
     if (this.x - this.game.Hero.x < 405) {
         this.active = true;
     }
@@ -950,14 +922,19 @@ function Soldier(game, spritesheet, x, y) {
 	this.down = false;
 	this.jump = false;
 	this.shoot = false;
+	this.special = false;
     this.direction = 1;
 	this.score = 0;
 	this.maxHealth = 3;
 	this.shield = 0;
 	this.health = this.maxHealth;
 	this.coins = 0;
-    this.platform = game.platforms[0];    
+    this.platform = game.platforms[0];
+	this.specials = [];
+//	this.specials.push("grenade");
+	this.currentSpecial = this.specials[0];
 	this.shootElapsedTime = 10;
+	this.weapon = "basic";
 	this.soundShoot = new Sound("audio/shoot-1.wav");
     this.boundingbox = new BoundingBox(this.x+2, this.y+2, this.width-7, this.height);
 	
@@ -990,11 +967,10 @@ Soldier.prototype.update = function () {
 		else this.boundingbox = new BoundingBox(this.x+5, this.y, this.width-17, this.height);
 
 		var moveTick = Math.round(this.game.clockTick * this.speed * this.direction);
-		if (this.x + moveTick >= -5 && this.x + moveTick <= 20000) this.x += moveTick;
-		if ((Camera.x + moveTick >= 0 && this.x - Camera.x >= 400 && this.direction === 1) 
-			|| (Camera.x + moveTick >= 0 && this.x - Camera.x <= 400 && this.direction === -1) ) Camera.x += moveTick;	
+		if (this.x + moveTick >= -5 && this.x + moveTick <= 7400) this.x += moveTick;
+		if ((Camera.x + moveTick >= 0 && this.x - Camera.x >= 400 && this.x + moveTick <= 7057 && this.direction === 1) 
+			|| (Camera.x + moveTick >= 0 && this.x - Camera.x <= 400 && this.x + moveTick <= 6650 && this.direction === -1) ) Camera.x += moveTick;	
 		 
-
 	}
 		
     // shoot
@@ -1028,6 +1004,44 @@ Soldier.prototype.update = function () {
 		} 
         
     }
+	
+	// use special
+	if (this.special) {
+		if (this.specials.length > 0) {
+			if (this.currentSpecial === "grenade") {
+				// 0.35 second cooldown
+				if (this.shootElapsedTime > 0.35) {
+					var compensate = 37;
+					var compensateY = 12;
+					//var dir = 1;
+					var aimY;
+					if (this.direction === -1) {
+						//dir = -1;
+						compensate = -7;
+					}
+					if (this.up) {
+						aimY = 1;
+						compensateY -= 13;
+					}
+					else if (this.down) {
+						aimY = -1;
+						compensateY += 13;
+					}
+					else aimY = 0;
+					
+					var grenade = new Grenade(this.game, AM.getAsset("./img/powerUp/grenade.png"), this.x + compensate, this.y + compensateY, this.direction, aimY);
+					this.game.addEntity(grenade);
+//					this.game.bullets.push(grenade);
+					this.soundShoot.play();
+					this.shootElapsedTime = 0; 
+				} 
+			}
+
+			this.specials.splice(this.currentSpecial, 1);
+
+		}
+		
+	}
 
     // press up (jump)
     if (this.jump && !this.jumping && !this.falling) {
@@ -1225,6 +1239,15 @@ Soldier.prototype.drawUI = function () {
 	// Shield
 	for (var i = 0; i < this.shield; i++) this.ctx.drawImage(AM.getAsset("./img/PowerUp/shield.png"), 50 + (this.maxHealth * 35) + (i * 35), 10, 35, 35);
 	
+	// Weapons
+	this.ctx.drawImage(AM.getAsset("./img/weaponBackground.png"), 145, 0, 148, 106, 0, 50, 79, 53);
+	this.ctx.drawImage(AM.getAsset("./img/weaponBackground.png"), 0, 0, 148, 106, 80, 50, 79, 53);
+	if (this.weapon === "basic") this.ctx.drawImage(AM.getAsset("./img/bullet.png"), 0, 0, 14, 14, 20, 55, 42, 42);
+	if (this.specials.length > 0) {
+		this.ctx.drawImage(AM.getAsset("./img/PowerUp/grenade.png"), 0, 0, 512, 512, 105, 61, 30, 30);
+	}
+	// context.drawImage(img,sx,sy,swidth,sheight,x,y,width,height);
+	
 	// Coins
 	if (this.coins === 0) this.ctx.drawImage(AM.getAsset("./img/PowerUp/coinIcon.png"), 730, 40, 35, 35);
 	else {
@@ -1294,6 +1317,87 @@ Bullet.prototype.draw = function () {
 		
 	}
     else this.animation.drawFrame(this.game.clockTick, this.ctx, this.x - Camera.x, this.y);
+	
+	/*
+	ctx.save();
+    ctx.translate(x + this.width / 2, y + this.height / 2);
+    ctx.rotate(this.angle * Math.PI / 180);
+    ctx.drawImage(this.img, this.x, this.y, this.width, this.height,
+                            -this.width / 2, -this.height / 2, this.width, this.height);
+    ctx.restore();
+	*/
+    Entity.prototype.draw.call(this);
+}
+
+
+/*
+Grenade
+*/
+function Grenade(game, spritesheet, x, y, direction, aimY) {
+    this.animation = new Animation(spritesheet, 512, 512, 8, 1, 8, true, 0.25);
+    this.animationExplosion = new CustomAnimation(AM.getAsset("./img/explosions.png"), 641, 79, 5, 15, 15, 6, .05, 6, false, 1);
+    this.speed = 500;
+    this.ctx = game.ctx;
+	this.game = game;
+    this.x = x;
+    this.y = y;
+	this.width = 512;
+	this.height = 512;
+	this.startX = x;
+	this.direction = direction;
+	this.aimY = aimY;
+	this.hit = false;
+	this.boundingbox = new BoundingBox(this.x, this.y, this.width, this.height);
+    Entity.call(this, game, this.x, this.y);
+}
+
+Grenade.prototype = new Entity();
+Grenade.prototype.constructor = Grenade;
+
+Grenade.prototype.update = function () {
+	if (!this.hit) {
+		this.x += this.game.clockTick * this.speed * this.direction;
+		this.y -= this.game.clockTick * this.speed * this.aimY/2;
+		this.boundingbox = new BoundingBox(this.x, this.y, this.width, this.height);
+		
+		var distance = Math.abs(this.x - this.startX);
+		if (distance > 400) {
+			if (DEBUG) console.log("Bullet removed.");	
+			for( var i = 0; i < this.game.bullets.length; i++){ 
+				if ( this.game.bullets[i] === this) {
+					this.game.bullets.splice(i, 1); 
+					this.removeFromWorld = true;
+				}
+			}
+		}
+    }
+	
+    Entity.prototype.update.call(this);
+}
+
+Grenade.prototype.draw = function () {
+	if (this.hit) {
+		this.animationExplosion.drawFrame(this.game.clockTick, this.ctx, this.x - Camera.x, this.y);
+		if (this.animationExplosion.isDone()) {
+			for( var i = 0; i < this.game.bullets.length; i++){ 
+				if ( this.game.bullets[i] === this) {
+					this.game.bullets.splice(i, 1);
+					this.removeFromWorld = true;
+				}
+			}	
+		}
+		
+	}
+    else this.animation.drawFrame(this.game.clockTick, this.ctx, this.x - Camera.x, this.y);
+	
+	/*
+	ctx.save();
+    ctx.translate(x + this.width / 2, y + this.height / 2);
+    ctx.rotate(this.angle * Math.PI / 180);
+    ctx.drawImage(this.img, this.x, this.y, this.width, this.height,
+                            -this.width / 2, -this.height / 2, this.width, this.height);
+    ctx.restore();
+	*/
     Entity.prototype.draw.call(this);
 }
 
@@ -1327,7 +1431,7 @@ Cannonball.prototype.update = function () {
 		this.boundingbox = new BoundingBox(this.x, this.y, this.width, this.height);
 		
 		var distance = Math.abs(this.x - this.startX);
-		if (distance > 1000) {
+		if (distance > 900) {
 			if (DEBUG) console.log("Cannonball removed.");	
 			for( var i = 0; i < this.game.bulletsBad.length; i++){ 
 				if ( this.game.bulletsBad[i] === this) {
@@ -1361,6 +1465,7 @@ Cannonball.prototype.draw = function () {
 
 var Camera = {
     x: 0,
+	//x: 5600,
     width: WINDOW_WIDTH
 };
 
@@ -1373,6 +1478,7 @@ AM.queueDownload("./img/explosions.png");
 AM.queueDownload("./img/robots.png");
 AM.queueDownload("./img/mechs.png");
 AM.queueDownload("./img/heart.png");
+AM.queueDownload("./img/weaponBackground.png");
 AM.queueDownload("./img/heartEmpty.png");
 AM.queueDownload("./img/wolf.png");
 AM.queueDownload("./img/ForestTiles.png");
@@ -1383,6 +1489,7 @@ AM.queueDownload("./img/PowerUp/health.png");
 AM.queueDownload("./img/PowerUp/coin.png");
 AM.queueDownload("./img/PowerUp/coinIcon.png");
 AM.queueDownload("./img/PowerUp/shield.png");
+AM.queueDownload("./img/PowerUp/grenade.png");
 
 
 AM.downloadAll(function () {
@@ -1405,9 +1512,16 @@ AM.downloadAll(function () {
     gameEngine.start();
 
 	// Backgrounds (gameEngine, spritesheet, x, y, speed, numberOfRepeats)
-	gameEngine.addEntity(new Background(gameEngine, AM.getAsset("./img/layer1.png"), -1535, 0, 35, 5));
-	gameEngine.addEntity(new Background(gameEngine, AM.getAsset("./img/layer2.png"), -1535, -50, 75, 5));
-		
+	gameEngine.addEntity(new Background(gameEngine, AM.getAsset("./img/layer1.png"), -1535, 0, 35, 7));
+	gameEngine.addEntity(new Background(gameEngine, AM.getAsset("./img/layer2.png"), -1535, -50, 75, 8));
+	
+	// Waterfall(game, spritesheet, sourceXWater, sourceYWater, sourceXTopSplash, sourceYTopSplash, sourceXBotSplash, sourceYBotSplash, 
+	// x, y, width, height, waterfallWidth, waterfallHeight)
+	// waterfall
+	
+	gameEngine.addEntity(new Waterfall(gameEngine, AM.getAsset("./img/ForestTiles.png"), 318, 679, 490, 679, 490, 716, 
+	6650, 300, 50, 50, 16, 6));
+	
 	// TilePlatform(game, spritesheet, sourceXLeft, sourceYLeft, sourceXMid, sourceYMid, sourceXRight, sourceYRight, x, y, width, height, numberOfTiles) {
 	var pf = new TilePlatform(gameEngine, AM.getAsset("./img/ForestTiles.png"), 23, 201, 77, 201, 131, 201, 23, 255, 77, 255, 131, 255, 0, 500, 50, 50, 18);
 	gameEngine.addEntity(pf);
@@ -1441,45 +1555,73 @@ AM.downloadAll(function () {
 	gameEngine.addEntity(pf);
 	platforms.push(pf);
 	
-	pf = new TilePlatform(gameEngine, AM.getAsset("./img/ForestTiles.png"), 23, 201, 77, 201, 131, 201, 23, 255, 77, 255, 131, 255, 3200, 500, 50, 50, 13);
+	pf = new TilePlatform(gameEngine, AM.getAsset("./img/ForestTiles.png"), 23, 201, 77, 201, 131, 201, 23, 255, 77, 255, 131, 255, 3300, 500, 50, 50, 18);
 	gameEngine.addEntity(pf);
 	platforms.push(pf);
 	
-	pf = new TilePlatform(gameEngine, AM.getAsset("./img/ForestTiles.png"), 23, 201, 77, 201, 131, 201, 23, 255, 77, 255, 131, 255, 3850, 200, 50, 50, 6);
+	pf = new TilePlatform(gameEngine, AM.getAsset("./img/ForestTiles.png"), 23, 201, 77, 201, 131, 201, 23, 255, 77, 255, 131, 255, 4250, 400, 50, 50, 13);
+	gameEngine.addEntity(pf);
+	platforms.push(pf);
+	
+	pf = new TilePlatform(gameEngine, AM.getAsset("./img/ForestTiles.png"), 23, 201, 77, 201, 131, 201, 23, 255, 77, 255, 131, 255, 5000, 400, 50, 50, 13);
 	gameEngine.addEntity(pf);
 	platforms.push(pf);
 
+	pf = new TilePlatform(gameEngine, AM.getAsset("./img/ForestTiles.png"), 23, 201, 77, 201, 131, 201, 23, 255, 77, 255, 131, 255, 5700, 300, 50, 50, 19);
+	gameEngine.addEntity(pf);
+	platforms.push(pf);
 	
+	pf = new TilePlatform(gameEngine, AM.getAsset("./img/ForestTiles.png"), 23, 201, 77, 201, 131, 201, 23, 255, 77, 255, 131, 255, 6650, 450, 50, 50, 3);
+	gameEngine.addEntity(pf);
+	platforms.push(pf);
 
+	pf = new TilePlatform(gameEngine, AM.getAsset("./img/ForestTiles.png"), 23, 201, 77, 201, 131, 201, 23, 255, 77, 255, 131, 255, 7300, 450, 50, 50, 3);
+	gameEngine.addEntity(pf);
+	platforms.push(pf);
+	
+	pf = new TilePlatform(gameEngine, AM.getAsset("./img/ForestTiles.png"), 23, 201, 77, 201, 131, 201, 23, 255, 77, 255, 131, 255, 6650, 550, 50, 50, 16);
+	gameEngine.addEntity(pf);
+	platforms.push(pf);
 	
     // dark platform
     //TilePlatform(gameEngine, AM.getAsset("./img/ForestTiles.png"), 19, 406, 73, 406, 127, 406, 19, 460, 73, 460, 127, 460, 3000, 500, 50, 50, 20)
 
     // Tile(game, spritesheet, sourceX, sourceY, width, height, x, y, numberOfXRepeats, numberOfYRepeats)
     // water
-	gameEngine.addEntity(new Tile(gameEngine, AM.getAsset("./img/ForestTiles.png"), 318, 788, 50, 50, 0, 600, 90, 2) );
+	gameEngine.addEntity(new Tile(gameEngine, AM.getAsset("./img/ForestTiles.png"), 318, 788, 50, 50, 0, 600, 200, 2) );
 
     // rocks
-	gameEngine.addEntity(new Tile(gameEngine, AM.getAsset("./img/ForestTiles.png"), 74, 866, 30, 16, 80, 500-16, 1, 1) );
+	gameEngine.addEntity(new Tile(gameEngine, AM.getAsset("./img/ForestTiles.png"), 74, 866, 30, 16, 100, 500-16, 1, 1) );
 	gameEngine.addEntity(new Tile(gameEngine, AM.getAsset("./img/ForestTiles.png"), 74, 866, 30, 16, 650, 500-16, 1, 1) );
 	gameEngine.addEntity(new Tile(gameEngine, AM.getAsset("./img/ForestTiles.png"), 38, 867, 30, 15, 1500, 400 - 15, 1, 1) );
 	gameEngine.addEntity(new Tile(gameEngine, AM.getAsset("./img/ForestTiles.png"), 38, 867, 30, 15, 2000, 400 - 15, 1, 1) );
 	gameEngine.addEntity(new Tile(gameEngine, AM.getAsset("./img/ForestTiles.png"), 38, 867, 30, 15, 2700, 200 - 15, 1, 1) );
+	gameEngine.addEntity(new Tile(gameEngine, AM.getAsset("./img/ForestTiles.png"), 38, 867, 30, 15, 3500, 500 - 15, 1, 1) );
+	gameEngine.addEntity(new Tile(gameEngine, AM.getAsset("./img/ForestTiles.png"), 38, 867, 30, 15, 4050, 500 - 15, 1, 1) );
+	gameEngine.addEntity(new Tile(gameEngine, AM.getAsset("./img/ForestTiles.png"), 38, 867, 30, 15, 4650, 400 - 15, 1, 1) );
+	gameEngine.addEntity(new Tile(gameEngine, AM.getAsset("./img/ForestTiles.png"), 38, 867, 30, 15, 5550, 400 - 15, 1, 1) );
+	gameEngine.addEntity(new Tile(gameEngine, AM.getAsset("./img/ForestTiles.png"), 38, 867, 30, 15, 5900, 300 - 15, 1, 1) );
+	gameEngine.addEntity(new Tile(gameEngine, AM.getAsset("./img/ForestTiles.png"), 38, 867, 30, 15, 6100, 300 - 15, 1, 1) );
+	gameEngine.addEntity(new Tile(gameEngine, AM.getAsset("./img/ForestTiles.png"), 38, 867, 30, 15, 6550, 300 - 15, 1, 1) );
 
     // small trees
 	gameEngine.addEntity(new Tile(gameEngine, AM.getAsset("./img/ForestTiles.png"), 77, 692, 28, 39, 400, 500 - 39, 1, 1) );
 	gameEngine.addEntity(new Tile(gameEngine, AM.getAsset("./img/ForestTiles.png"), 77, 692, 28, 39, 1700, 400 - 39, 1, 1) );
 	gameEngine.addEntity(new Tile(gameEngine, AM.getAsset("./img/ForestTiles.png"), 77, 692, 28, 39, 2400, 200 - 39, 1, 1) );
 	gameEngine.addEntity(new Tile(gameEngine, AM.getAsset("./img/ForestTiles.png"), 77, 692, 28, 39, 2900, 200 - 39, 1, 1) );
+	gameEngine.addEntity(new Tile(gameEngine, AM.getAsset("./img/ForestTiles.png"), 77, 692, 28, 39, 4400, 400 - 39, 1, 1) );
+	gameEngine.addEntity(new Tile(gameEngine, AM.getAsset("./img/ForestTiles.png"), 77, 692, 28, 39, 5200, 400 - 39, 1, 1) );
+	gameEngine.addEntity(new Tile(gameEngine, AM.getAsset("./img/ForestTiles.png"), 77, 692, 28, 39, 6450, 300 - 39, 1, 1) );
 	
 	// plant 4 (108, 72, 20, 43)
 	gameEngine.addEntity(new Tile(gameEngine, AM.getAsset("./img/ForestTiles.png"), 108, 782, 20, 43, 2600, 500 - 43, 1, 1) );
+	gameEngine.addEntity(new Tile(gameEngine, AM.getAsset("./img/ForestTiles.png"), 108, 782, 20, 43, 3800, 500 - 43, 1, 1) );
+	gameEngine.addEntity(new Tile(gameEngine, AM.getAsset("./img/ForestTiles.png"), 108, 782, 20, 43, 5400, 400 - 43, 1, 1) );
+	gameEngine.addEntity(new Tile(gameEngine, AM.getAsset("./img/ForestTiles.png"), 108, 782, 20, 43, 6300, 300 - 43, 1, 1) );
 	
-	// waterfall
-	
-
 	// Hero
-    var Hero = new Soldier(gameEngine, AM.getAsset("./img/soldierRight.png"), 400, 0);
+    //var Hero = new Soldier(gameEngine, AM.getAsset("./img/soldierRight.png"), 6000, 0);
+	var Hero = new Soldier(gameEngine, AM.getAsset("./img/soldierRight.png"), 400, 0);
     gameEngine.addEntity(Hero);
 	gameEngine.Hero = Hero;
 	
@@ -1495,11 +1637,14 @@ AM.downloadAll(function () {
 	
 
 	// Monsters
-	var monster = new FlyingRobot(gameEngine, AM.getAsset("./img/robots.png"), 128*15, 350, 50, 50, false, "none");
+	
+	/*
+	var monster = new FlyingRobot(gameEngine, AM.getAsset("./img/robots.png"), 1900, 350, 50, 50, false, "none");
 	gameEngine.addEntity(monster);
 	monsters.push(monster);
+	*/
 	
-	monster = new FlyingRobot(gameEngine, AM.getAsset("./img/robots.png"), 128 * 17, 350, 50, 50, false, "none");
+	monster = new FlyingRobot(gameEngine, AM.getAsset("./img/robots.png"), 2150, 350, 50, 50, false, "none");
 	gameEngine.addEntity(monster);
 	monsters.push(monster);
 	
@@ -1507,19 +1652,37 @@ AM.downloadAll(function () {
 	gameEngine.addEntity(monster);
 	monsters.push(monster);
 	
+	/*
 	monster = new FlyingRobot(gameEngine, AM.getAsset("./img/robots.png"), 3000, 150, 50, 50, true, "health");
 	gameEngine.addEntity(monster);
 	monsters.push(monster);
-
+	*/
+	
 	monster = new Turret(gameEngine, AM.getAsset("./img/robots.png"), 1650, 450, 50, 50, true, "coin");
-	gameEngine.addEntity(monster);
+	gameEngine.addEntity(monster); 
 	monsters.push(monster);
 
-	monster = new Turret(gameEngine, AM.getAsset("./img/robots.png"), 3100, 150, 50, 50, true, "coin");
+	monster = new Turret(gameEngine, AM.getAsset("./img/robots.png"), 3150, 150, 50, 50, true, "coin");
 	gameEngine.addEntity(monster);
 	monsters.push(monster);
 	
-	monster = new Mech(gameEngine, AM.getAsset("./img/mechs.png"), 3700, 500-81, 140, 108, true, "coin");
+	monster = new Mech(gameEngine, AM.getAsset("./img/mechs.png"), 4000, 500-81, 140, 108, true, "coin");
+	gameEngine.addEntity(monster);
+	monsters.push(monster);
+	
+	monster = new FlyingRobot(gameEngine, AM.getAsset("./img/robots.png"), 4850, 350, 50, 50, false, "none");
+	gameEngine.addEntity(monster);
+	monsters.push(monster);
+	
+	monster = new Turret(gameEngine, AM.getAsset("./img/robots.png"), 5600, 350, 50, 50, true, "coin");
+	gameEngine.addEntity(monster);
+	monsters.push(monster);
+	
+	monster = new FlyingRobot(gameEngine, AM.getAsset("./img/robots.png"), 6150, 250, 50, 50, false, "none");
+	gameEngine.addEntity(monster);
+	monsters.push(monster);
+	
+	monster = new Turret(gameEngine, AM.getAsset("./img/robots.png"), 6600, 250, 50, 50, true, "health");
 	gameEngine.addEntity(monster);
 	monsters.push(monster);
 	
@@ -1571,6 +1734,20 @@ AM.downloadAll(function () {
             case 67:
                 Hero.shoot = true;
                 break;
+				
+			// Z
+            case 90:
+                Hero.special = true;
+                break;
+				
+			// A
+            case 65:
+				if (Hero.specials.length > 1) {
+					if (Hero.currentSpecial === Hero.specials.length - 1)
+					Hero.swapSpecial = true;
+					break;	
+				}
+				
 		}
       });
 	document.addEventListener('keyup', function(e){
@@ -1610,6 +1787,11 @@ AM.downloadAll(function () {
 			// C
             case 67:
                 Hero.shoot = false;
+                break;
+				
+			// Z
+            case 90:
+                Hero.special = false;
                 break;
 		}
 	});
