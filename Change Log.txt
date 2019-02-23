@@ -72,3 +72,18 @@ Change Log starting from 1/31/19.
 2/19/19
 	Features:
 		- Added the rest of level 1
+		
+2/20/19
+	Features:
+		- Added camera lock for boss fight
+		
+2/22/19
+	Features:
+		- Added the following sounds: bullet hit, player hit, enemy destroyed, health, shield		
+		
+2/23/19
+	Features:
+		- Added death animation for monsters	
+		
+	Bug Fixes:
+		- fixed ghost border around certain animations

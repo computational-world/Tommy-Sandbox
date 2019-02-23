@@ -18,6 +18,23 @@ function Sound(src) {
 }
 
 var soundSong = new Sound("audio/track_1.wav");
+soundSong.sound.volume = 0.5;
+
+function dropPowerUp(entity) {
+	if (entity.powerUpType === "shield") {
+		power = new PowerUp(entity.game, AM.getAsset("./img/PowerUp/shield.png"), entity.x, entity.boundingbox.bottom - 38, 256, 256, 0.15, "shield");
+		entity.game.addEntity(power);
+		entity.game.powerups.push(power);
+	} else if (entity.powerUpType === "health") {
+		power = new PowerUp(entity.game, AM.getAsset("./img/PowerUp/health.png"), entity.x, entity.boundingbox.bottom - 35, 494, 443, 0.08, "health");
+		entity.game.addEntity(power);
+		entity.game.powerups.push(power);
+	} else if (entity.powerUpType === "coin") {
+		power = new PowerUp(entity.game, AM.getAsset("./img/PowerUp/coin.png"), entity.x, entity.boundingbox.bottom - 35, 494, 496, 0.07, "coin");
+		entity.game.addEntity(power);
+		entity.game.powerups.push(power);
+	}
+}
 	
 function Animation(spriteSheet, frameWidth, frameHeight, sheetWidth, frameDuration, frames, loop, scale) {
     this.spriteSheet = spriteSheet;
@@ -299,7 +316,8 @@ function Waterfall(game, spritesheet, sourceXWater, sourceYWater, sourceXTopSpla
 	this.sourceYTopSplash = sourceYTopSplash;
 	this.sourceXBotSplash = sourceXBotSplash;
 	this.sourceYBotSplash = sourceYBotSplash;
-
+	this.active = false;
+	
     Entity.call(game, spritesheet, sourceXWater, sourceYWater, sourceXTopSplash, sourceYTopSplash, sourceXBotSplash, sourceYBotSplash, 
 	x, y, width, height, waterfallWidth, waterfallHeight);
 }
@@ -308,18 +326,21 @@ Waterfall.prototype = new Entity();
 Waterfall.prototype.constructor = Waterfall;
 
 Waterfall.prototype.update = function () {
-    Entity.prototype.update.call(this);
+    if (this.x - this.game.Hero.x < 500) this.active = true;
+	Entity.prototype.update.call(this);
 }
 Waterfall.prototype.draw = function () {
-	
-    for (var y = 0; y < this.waterfallHeight; y++) {
-        for (var i=0; i < this.waterfallWidth; i++) {
-			this.animationWater.drawFrame(this.game.clockTick, this.ctx, this.x - Camera.x + (i*this.width), this.y+(y*this.height));	
-			
-			if (y === 0) this.animationSplashTop.drawFrame(this.game.clockTick, this.ctx, this.x - Camera.x + (i*this.width), this.y+(y*this.height) - 3);
-			else if (y === this.waterfallHeight - 1) this.animationSplashBot.drawFrame(this.game.clockTick, this.ctx, this.x - Camera.x + (i*this.width), this.y+(y*this.height) + this.height - 9);
-		}
-    }
+	if (this.active) {
+		for (var y = 0; y < this.waterfallHeight; y++) {
+			for (var i=0; i < this.waterfallWidth; i++) {
+				this.animationWater.drawFrame(this.game.clockTick, this.ctx, this.x - Camera.x + (i*this.width), this.y+(y*this.height));	
+				
+				if (y === 0) this.animationSplashTop.drawFrame(this.game.clockTick, this.ctx, this.x - Camera.x + (i*this.width), this.y+(y*this.height) - 3);
+				else if (y === this.waterfallHeight - 1) this.animationSplashBot.drawFrame(this.game.clockTick, this.ctx, this.x - Camera.x + (i*this.width), this.y+(y*this.height) + this.height - 9);
+			}
+		}	
+	}
+    
     
     Entity.prototype.draw.call(this);
 }
@@ -375,6 +396,8 @@ function PowerUp(game, spritesheet, x, y, width, height, scale, type) {
     this.boundingbox = new BoundingBox(x, y, this.width * scale, this.height * scale);
 	this.floatHeight = 10;
 	this.soundCoin = new Sound("audio/coin.wav");
+	this.soundHealth = new Sound("audio/health.wav");
+	this.soundShield = new Sound("audio/shield.wav");
     Entity.call(this, game, x, y, width, height, scale, type);
 }
 
@@ -399,6 +422,7 @@ PowerUp.prototype.update = function () {
 		if (this.game.Hero.health <= this.game.Hero.maxHealth - 1) {
 			if (this.boundingbox.collide(this.game.Hero.boundingbox)) {
 					if (DEBUG) console.log("Hero got " + this.type + " power up!");
+					this.soundHealth.play();
 					this.game.Hero.health++;
 					this.removeFromWorld = true;
 			}	
@@ -416,6 +440,7 @@ PowerUp.prototype.update = function () {
 		if (this.boundingbox.collide(this.game.Hero.boundingbox)) {
 					if (DEBUG) console.log("Hero got " + this.type + " power up!");
 					this.game.Hero.shield += 3;
+					this.soundShield.play();
 					this.removeFromWorld = true;
 		}
 	}
@@ -451,6 +476,7 @@ Flying Robot
 */
 function FlyingRobot(game, spritesheet, x, y, width, height, powerUp, powerUpType) {
     this.animation = new CustomAnimation(spritesheet, 149, 619, 1, 50, 50, 2, 0.25, 2, true, 1);
+	this.animationDie = new Animation(AM.getAsset("./img/explosion.png"), 128, 128, 4, 0.03, 16, false, 0.4);
     this.ctx = game.ctx;
     this.spritesheet = spritesheet;
     this.game = game;
@@ -463,6 +489,7 @@ function FlyingRobot(game, spritesheet, x, y, width, height, powerUp, powerUpTyp
 	this.active = false;
 	this.powerUp = powerUp;
 	this.powerUpType = powerUpType;
+	this.soundDeath = new Sound("audio/death-enemy.wav");
     this.boundingbox = new BoundingBox(x, y, width, height);
     Entity.call(game, spritesheet, x, y, width, height, powerUp, powerUpType);
 }
@@ -471,26 +498,14 @@ FlyingRobot.prototype = new Entity();
 FlyingRobot.prototype.constructor = FlyingRobot;
 
 FlyingRobot.prototype.update = function () {
+	
     // monster dead
-	if (this.hitPoints <= 0) {
+	if (this.animationDie.isDone()) {
 	    this.game.Hero.score += 100;
         // drop powerUp
-	    if (this.powerUp) {
-	        if (this.powerUpType === "shield") {
-	            power = new PowerUp(this.game, AM.getAsset("./img/PowerUp/shield.png"), this.x, this.boundingbox.bottom-38, 256, 256, 0.15, "shield");
-	            this.game.addEntity(power);
-	            this.game.powerups.push(power);
-	        } else if (this.powerUpType === "health") {
-	            power = new PowerUp(this.game, AM.getAsset("./img/PowerUp/health.png"), this.x, this.boundingbox.bottom - 35, 494, 443, 0.08, "health");
-	            this.game.addEntity(power);
-	            this.game.powerups.push(power);
-	        } else if (this.powerUpType === "coin") {
-	            power = new PowerUp(this.game, AM.getAsset("./img/PowerUp/coin.png"), this.x, this.boundingbox.bottom - 35, 494, 496, 0.07, "coin");
-	            this.game.addEntity(power);
-	            this.game.powerups.push(power);
-	        }
+	    if (this.powerUp) dropPowerUp(this);
 	        
-	    }
+		this.soundDeath.play();
 		this.removeFromWorld = true;
 	}
 
@@ -528,7 +543,21 @@ FlyingRobot.prototype.update = function () {
 }
 
 FlyingRobot.prototype.draw = function () {
-    this.animation.drawFrame(this.game.clockTick, this.ctx, this.x - Camera.x, this.y);
+	
+	if (this.hitPoints <= 0) {	
+		if (this.animationDie.elapsedTime === 0) this.soundDeath.play();
+
+		if (this.animationDie.isDone()) {
+			for( var i = 0; i < this.game.monsters.length; i++){ 
+				if ( this.game.monsters[i] === this) {
+					this.game.monsters.splice(i, 1);				
+					this.removeFromWorld = true;
+				}
+			}	
+		}
+		else this.animationDie.drawFrame(this.game.clockTick, this.ctx, this.x - Camera.x, this.y);		
+	}
+    else this.animation.drawFrame(this.game.clockTick, this.ctx, this.x - Camera.x, this.y);
     //this.ctx.drawImage(this.spritesheet, this.x - Camera.x, this.y);
 	if (DEBUG) {
 		this.ctx.strokeStyle = "red";
@@ -545,6 +574,7 @@ Turret
 function Turret(game, spritesheet, x, y, width, height, powerUp, powerUpType) {
     this.animation = new CustomAnimation(spritesheet, 47, 159, 1, 50, 50, 1, 1.75, 1, false, 1);
 	this.animationShoot = new CustomAnimation(spritesheet, 47, 159, 1, 50, 50, 2, 0.20, 2, false, 1);
+	this.animationDie = new Animation(AM.getAsset("./img/explosion.png"), 128, 128, 4, 0.03, 16, false, 0.4);
     this.ctx = game.ctx;
     this.spritesheet = spritesheet;
     this.game = game;
@@ -558,6 +588,7 @@ function Turret(game, spritesheet, x, y, width, height, powerUp, powerUpType) {
     this.powerUp = powerUp;
     this.powerUpType = powerUpType;
     this.shooting = false;
+	this.soundDeath = new Sound("audio/death-enemy.wav");
     this.boundingbox = new BoundingBox(x, y+20, width, height-20);
     Entity.call(game, spritesheet, x, y, width, height, powerUp, powerUpType);
 }
@@ -567,26 +598,10 @@ Turret.prototype.constructor = Turret;
 
 Turret.prototype.update = function () {
     // monster dead
-    if (this.hitPoints <= 0) {
-        this.game.Hero.score += 200;
+    if (this.animationDie.isDone()) {
+        this.game.Hero.score += 250;
         // drop powerUp
-        if (this.powerUp) {
-            if (this.powerUpType === "shield") {
-                power = new PowerUp(this.game, AM.getAsset("./img/PowerUp/shield.png"), this.x, this.boundingbox.bottom - 38, 256, 256, 0.15, "shield");
-                this.game.addEntity(power);
-                this.game.powerups.push(power);
-            } else if (this.powerUpType === "health") {
-                power = new PowerUp(this.game, AM.getAsset("./img/PowerUp/health.png"), this.x, this.boundingbox.bottom - 35, 494, 443, 0.08, "health");
-                this.game.addEntity(power);
-                this.game.powerups.push(power);
-            } else if (this.powerUpType === "coin") {
-                power = new PowerUp(this.game, AM.getAsset("./img/PowerUp/coin.png"), this.x, this.boundingbox.bottom - 35, 494, 496, 0.07, "coin");
-                this.game.addEntity(power);
-                this.game.powerups.push(power);
-            }
-
-        }
-        this.removeFromWorld = true;
+        if (this.powerUp) dropPowerUp(this);
     }
 
     this.boundingbox = new BoundingBox(this.x, this.y+20, this.width, this.height-20);
@@ -638,15 +653,27 @@ Turret.prototype.update = function () {
 }
 
 Turret.prototype.draw = function () {
-//	this.ctx.drawImage(AM.getAsset("./img/robots.png"), 47, 159, 50, 50, this.x - Camera.x, this.y, 50, 50);
 
-	if (this.shooting) { 
-		this.animationShoot.drawFrame(this.game.clockTick, this.ctx, this.x - Camera.x, this.y);
+	// dead
+	if (this.hitPoints <= 0) {	
+		if (this.animationDie.elapsedTime === 0) this.soundDeath.play();
+
+		if (this.animationDie.isDone()) {
+			for( var i = 0; i < this.game.monsters.length; i++){ 
+				if ( this.game.monsters[i] === this) {
+					this.game.monsters.splice(i, 1);				
+					this.removeFromWorld = true;
+				}
+			}	
+		}
+		else this.animationDie.drawFrame(this.game.clockTick, this.ctx, this.x - Camera.x, this.y);		
 	} else {
-		this.animation.drawFrame(this.game.clockTick, this.ctx, this.x - Camera.x, this.y);
+		if (this.shooting) { 
+			this.animationShoot.drawFrame(this.game.clockTick, this.ctx, this.x - Camera.x, this.y);
+		} else {
+			this.animation.drawFrame(this.game.clockTick, this.ctx, this.x - Camera.x, this.y);
+		}
 	}
-
-
 	
     if (DEBUG) {
         this.ctx.strokeStyle = "red";
@@ -664,6 +691,7 @@ function Mech(game, spritesheet, x, y, width, height, powerUp, powerUpType) {
     this.animation = new CustomAnimation(spritesheet, 136, 155, 1, 140, 108, 1, 1.5, 1, false, 0.75);
 	this.animationShoot = new CustomAnimation(spritesheet, 136, 267, 1, 140, 108, 2, 0.20, 2, false, 0.75);
 	this.animationJump = new CustomAnimation(spritesheet, 136, 379, 1, 140, 108, 1, 0.50, 1, false, 0.75);
+	this.animationDie = new Animation(AM.getAsset("./img/explosion.png"), 128, 128, 4, 0.03, 16, false, 0.84);
     this.ctx = game.ctx;
     this.spritesheet = spritesheet;
     this.game = game;
@@ -682,6 +710,7 @@ function Mech(game, spritesheet, x, y, width, height, powerUp, powerUpType) {
 	this.jumpHeight = 25;
 	this.baseY = y;
 	this.baseX = x;
+	this.soundDeath = new Sound("audio/death-enemy.wav");
     this.boundingbox = new BoundingBox(x+27, y, this.width-35, this.height);
     Entity.call(game, spritesheet, x, y, width, height, powerUp, powerUpType);
 }
@@ -692,30 +721,10 @@ Mech.prototype.constructor = Mech;
 Mech.prototype.update = function () {
     this.boundingbox = new BoundingBox(this.x+27, this.y, this.width-35, this.height);
 	// monster dead
-    if (this.hitPoints <= 0) {
+    if (this.animationDie.isDone()) {
         this.game.Hero.score += 500;
         // drop powerUp
-        if (this.powerUp) {
-            if (this.powerUpType === "shield") {
-                power = new PowerUp(this.game, AM.getAsset("./img/PowerUp/shield.png"), this.x, this.boundingbox.bottom - 38, 256, 256, 0.15, "shield");
-                this.game.addEntity(power);
-                this.game.powerups.push(power);
-            } else if (this.powerUpType === "health") {
-                power = new PowerUp(this.game, AM.getAsset("./img/PowerUp/health.png"), this.x, this.boundingbox.bottom - 35, 494, 443, 0.08, "health");
-                this.game.addEntity(power);
-                this.game.powerups.push(power);
-            } else if (this.powerUpType === "coin") {
-                power = new PowerUp(this.game, AM.getAsset("./img/PowerUp/coin.png"), this.x, this.boundingbox.bottom - 35, 494, 496, 0.07, "coin");
-                this.game.addEntity(power);
-                this.game.powerups.push(power);
-            } else if (this.powerUpType === "grenade") {
-                power = new PowerUp(this.game, AM.getAsset("./img/PowerUp/grenade.png"), this.x, this.boundingbox.bottom - 35, 512, 512, 0.07, "grenade");
-                this.game.addEntity(power);
-                this.game.powerups.push(power);
-			}
-
-        }
-        this.removeFromWorld = true;
+        if (this.powerUp) dropPowerUp(this);
     }
 
     
@@ -797,14 +806,29 @@ Mech.prototype.update = function () {
 }
 
 Mech.prototype.draw = function () {
+	if (this.hitPoints <= 0) {	
+		if (this.animationDie.elapsedTime === 0) this.soundDeath.play();
 
-	if (this.shooting) { 
-		this.animationShoot.drawFrame(this.game.clockTick, this.ctx, this.x - Camera.x, this.y);
-	} else if (this.jumping) {
-		this.animationJump.drawFrame(this.game.clockTick, this.ctx, this.x - Camera.x, this.y);
-	} else if (this.idle) {
-		this.animation.drawFrame(this.game.clockTick, this.ctx, this.x - Camera.x, this.y);
+		if (this.animationDie.isDone()) {
+			this.soundDeath.play();
+			for( var i = 0; i < this.game.monsters.length; i++){ 
+				if ( this.game.monsters[i] === this) {
+					this.game.monsters.splice(i, 1);				
+					this.removeFromWorld = true;
+				}
+			}	
+		}
+		else this.animationDie.drawFrame(this.game.clockTick, this.ctx, this.x - Camera.x, this.y);		
+	} else {
+		if (this.shooting) { 
+			this.animationShoot.drawFrame(this.game.clockTick, this.ctx, this.x - Camera.x, this.y);
+		} else if (this.jumping) {
+			this.animationJump.drawFrame(this.game.clockTick, this.ctx, this.x - Camera.x, this.y);
+		} else if (this.idle) {
+			this.animation.drawFrame(this.game.clockTick, this.ctx, this.x - Camera.x, this.y);
+		}
 	}
+	
 
 
     if (DEBUG) {
@@ -935,7 +959,8 @@ function Soldier(game, spritesheet, x, y) {
 	this.currentSpecial = this.specials[0];
 	this.shootElapsedTime = 10;
 	this.weapon = "basic";
-	this.soundShoot = new Sound("audio/shoot-1.wav");
+	this.soundDamage = new Sound("audio/damage.wav");
+	this.soundJump = new Sound("audio/jump.wav");
     this.boundingbox = new BoundingBox(this.x+2, this.y+2, this.width-7, this.height);
 	
     Entity.call(this, game, x, y);
@@ -954,6 +979,7 @@ Soldier.prototype.update = function () {
 
 		// hit by bullet            
 		if (!bullet.hit && this.boundingbox.collide(bullet.boundingbox)) {
+			this.soundDamage.play();
 			if (DEBUG) console.log("hit!");
 			bullet.hit = true;
 			if (this.shield > 0) this.shield--;
@@ -999,7 +1025,6 @@ Soldier.prototype.update = function () {
 			var bullet = new Bullet(this.game, AM.getAsset("./img/bullet.png"), this.x + compensate, this.y + compensateY, this.direction, aimY);
 			this.game.addEntity(bullet);
 			this.game.bullets.push(bullet);
-			this.soundShoot.play();
 			this.shootElapsedTime = 0; 
 		} 
         
@@ -1047,6 +1072,7 @@ Soldier.prototype.update = function () {
     if (this.jump && !this.jumping && !this.falling) {
         this.jumping = true;
         this.basey = this.y;
+		this.soundJump.play();
     }
 	
     // free fall
@@ -1254,8 +1280,7 @@ Soldier.prototype.drawUI = function () {
 		this.ctx.drawImage(AM.getAsset("./img/PowerUp/coinIcon.png"), 740 - (Math.log10(this.coins) + 1) * 10, 40, 35, 35);
 		this.ctx.fillText(this.coins, 785 - (Math.log10(this.coins) + 1) * 10, 70);	
 	}
-	
-	
+		
 }
 
 /*
@@ -1275,6 +1300,9 @@ function Bullet(game, spritesheet, x, y, direction, aimY) {
 	this.direction = direction;
 	this.aimY = aimY;
 	this.hit = false;
+	this.soundShoot = new Sound("audio/shoot-1.wav");
+	this.soundHit = new Sound("audio/hit.wav");
+	this.soundShoot.play();
 	this.boundingbox = new BoundingBox(this.x, this.y, this.width, this.height);
     Entity.call(this, game, this.x, this.y);
 }
@@ -1305,11 +1333,14 @@ Bullet.prototype.update = function () {
 
 Bullet.prototype.draw = function () {
 	if (this.hit) {
+		
+		if (this.animationExplosion.elapsedTime === 0) this.soundHit.play();
+		
 		this.animationExplosion.drawFrame(this.game.clockTick, this.ctx, this.x - Camera.x, this.y);
 		if (this.animationExplosion.isDone()) {
 			for( var i = 0; i < this.game.bullets.length; i++){ 
 				if ( this.game.bullets[i] === this) {
-					this.game.bullets.splice(i, 1);
+					this.game.bullets.splice(i, 1);				
 					this.removeFromWorld = true;
 				}
 			}	
@@ -1462,7 +1493,6 @@ Cannonball.prototype.draw = function () {
     Entity.prototype.draw.call(this);
 }
 
-
 var Camera = {
     x: 0,
 	//x: 5600,
@@ -1484,6 +1514,7 @@ AM.queueDownload("./img/wolf.png");
 AM.queueDownload("./img/ForestTiles.png");
 AM.queueDownload("./img/dust.png");
 AM.queueDownload("./img/shields.png");
+AM.queueDownload("./img/explosion.png");
 // powerups
 AM.queueDownload("./img/PowerUp/health.png");
 AM.queueDownload("./img/PowerUp/coin.png");
@@ -1621,7 +1652,7 @@ AM.downloadAll(function () {
 	
 	// Hero
     //var Hero = new Soldier(gameEngine, AM.getAsset("./img/soldierRight.png"), 6000, 0);
-	var Hero = new Soldier(gameEngine, AM.getAsset("./img/soldierRight.png"), 400, 0);
+	var Hero = new Soldier(gameEngine, AM.getAsset("./img/soldierRight.png"), 200, 0);
     gameEngine.addEntity(Hero);
 	gameEngine.Hero = Hero;
 	
@@ -1637,12 +1668,6 @@ AM.downloadAll(function () {
 	
 
 	// Monsters
-	
-	/*
-	var monster = new FlyingRobot(gameEngine, AM.getAsset("./img/robots.png"), 1900, 350, 50, 50, false, "none");
-	gameEngine.addEntity(monster);
-	monsters.push(monster);
-	*/
 	
 	monster = new FlyingRobot(gameEngine, AM.getAsset("./img/robots.png"), 2150, 350, 50, 50, false, "none");
 	gameEngine.addEntity(monster);
@@ -1739,14 +1764,6 @@ AM.downloadAll(function () {
             case 90:
                 Hero.special = true;
                 break;
-				
-			// A
-            case 65:
-				if (Hero.specials.length > 1) {
-					if (Hero.currentSpecial === Hero.specials.length - 1)
-					Hero.swapSpecial = true;
-					break;	
-				}
 				
 		}
       });
